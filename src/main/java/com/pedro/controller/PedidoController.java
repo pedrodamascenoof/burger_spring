@@ -7,7 +7,6 @@ import java.util.Optional;
 
 import javax.validation.Valid;
 
-
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,29 +17,28 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.pedro.domain.Item;
 import com.pedro.domain.Cliente;
 import com.pedro.domain.Pedido;
 import com.pedro.repository.ClienteRepository;
 import com.pedro.repository.ItemRepository;
 import com.pedro.repository.PedidoRepository;
-import com.pedro.service.AtualizaEstoque;
+
 
 
 @Controller
 @RequestMapping("/pedidos")
 public class PedidoController {
 
-	private final AtualizaEstoque atualizaEstoque;
 	private final PedidoRepository pedidoRepository;
 	private final ItemRepository itemRepository;
 	private final ClienteRepository clienteRepository;
 	private final String ITEM_URI = "pedidos/";
 
-	public PedidoController(PedidoRepository pedidoRepository,ItemRepository itemRepository,ClienteRepository clienteRepository,AtualizaEstoque atualizaEstoque) {
+	public PedidoController(PedidoRepository pedidoRepository,ItemRepository itemRepository,ClienteRepository clienteRepository) {
 		this.pedidoRepository = pedidoRepository;
 		this.itemRepository = itemRepository;
 		this.clienteRepository = clienteRepository;
-		this.atualizaEstoque = atualizaEstoque;
 	}
 
 	@GetMapping("/")
@@ -69,7 +67,7 @@ public class PedidoController {
 		if (result.hasErrors()) { return new ModelAndView(ITEM_URI + "form","formErrors",result.getAllErrors()); }
 
 		if (pedido.getId() != null) {
-
+			
 			Optional<Pedido> pedidoParaAlterarOpt = pedidoRepository.findById(pedido.getId());
 			Pedido pedidoParaAlterar = pedidoParaAlterarOpt.get();
 						
@@ -78,7 +76,7 @@ public class PedidoController {
 			
 			pedidoParaAlterar.setItens(pedido.getItens());
 			double valorTotal = 0;
-			for (com.pedro.domain.Item i : pedido.getItens()) {
+			for (Item i : pedido.getItens()) {
 				valorTotal +=i.getPreco();
 			}
 			pedidoParaAlterar.setData(pedido.getData());
@@ -92,15 +90,13 @@ public class PedidoController {
 			Cliente c = clienteOpt.get();
 			 
 			double valorTotal = 0;
-			for (com.pedro.domain.Item i : pedido.getItens()) {
+			for (Item i : pedido.getItens()) {
 				valorTotal +=i.getPreco();
 			}
 			pedido.setValorTotal(valorTotal);
 			pedido = this.pedidoRepository.save(pedido);
 			c.getPedidos().add(pedido);
 			this.clienteRepository.save(c);
-			// atualiza estoque
-			atualizaEstoque.processar(pedido);
 		}
 		redirect.addFlashAttribute("globalMessage","Pedido gravado com sucesso");
 		return new ModelAndView("redirect:/" + ITEM_URI + "{pedido.id}","pedido.id",pedido.getId());
@@ -111,9 +107,11 @@ public class PedidoController {
 
 		Optional<Pedido> pedidoParaRemoverOpt = pedidoRepository.findById(id);
 		Pedido pedidoParaRemover = pedidoParaRemoverOpt.get();
-		 
+
 		Optional<Cliente> clienteOpt = clienteRepository.findById(pedidoParaRemover.getCliente().getId());
 		Cliente c = clienteOpt.get();
+ 
+		c.getPedidos().remove(pedidoParaRemover);
 
 		this.clienteRepository.save(c);
 		this.pedidoRepository.deleteById(id);
